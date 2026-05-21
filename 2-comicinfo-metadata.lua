@@ -20,6 +20,10 @@ local function warn(msg, ...)
     logger.warn("ComicInfo:", msg, ...)
 end
 
+local function hasData(items)
+    return type(items) == "table" and next(items) ~= nil
+end
+
 local function parseComicInfoXML(xml_str)
     if not xml_str or xml_str == "" then return nil end
     xml_str = xml_str:gsub("^\xef\xbb\xbf", "", 1)
@@ -101,12 +105,61 @@ local function extractComicInfo(filepath)
     return metadata
 end
 
-local function saveComicMetadata(filepath, metadata)
-    local custom_settings = DocSettings.openSettingsFile(filepath)
-    if not custom_settings then return false end
+local function splitMetadata(metadata)
+    if type(metadata) ~= "table" then return nil end
+    local custom_props = {}
+    for key, value in pairs(metadata) do
+        if key ~= "pages" and value ~= nil and value ~= "" then
+            custom_props[key] = value
+        end
+    end
+    local doc_props
+    if metadata.pages then
+        doc_props = { pages = metadata.pages }
+    end
+    if not hasData(custom_props) and not doc_props then return nil end
+    return custom_props, doc_props
+end
+
+local function removeEmptyComicMetadata(custom_mf)
+    local settings = DocSettings.openSettingsFile(custom_mf)
+    if hasData(settings:readSetting("custom_props")) or hasData(settings:readSetting("doc_props")) then
+        return false
+    end
+    os.remove(custom_mf)
+    DocSettings.removeSidecarDir(util.splitFilePathName(custom_mf))
+    return true
+end
+
+local function migrateCachedPages(custom_mf, filepath, custom_props, doc_props)
+    if type(custom_props) ~= "table" or custom_props.pages == nil then
+        return custom_props, doc_props
+    end
+
+    doc_props = type(doc_props) == "table" and doc_props or {}
+    doc_props.pages = doc_props.pages or custom_props.pages
+    custom_props.pages = nil
+
+    local settings = DocSettings.openSettingsFile(custom_mf)
+    settings:saveSetting("doc_props", doc_props)
+    settings:saveSetting("custom_props", custom_props)
+    settings:flushCustomMetadata(filepath)
+    return custom_props, doc_props
+end
+
+local function saveComicMetadata(filepath, metadata, custom_mf)
+    local custom_props, doc_props_update = splitMetadata(metadata)
+    if not custom_props then return false end
+
+    local custom_settings = DocSettings.openSettingsFile(custom_mf)
     local doc_props = custom_settings:readSetting("doc_props") or {}
+    if doc_props_update then
+        for key, value in pairs(doc_props_update) do
+            doc_props[key] = value
+        end
+    end
     custom_settings:saveSetting("doc_props", doc_props)
-    custom_settings:saveSetting("custom_props", metadata or {})
+    custom_settings:saveSetting("custom_props", custom_props)
     custom_settings:flushCustomMetadata(filepath)
     return true
 end
@@ -114,15 +167,19 @@ end
 local function ensureComicMetadataCached(filepath)
     local custom_mf = DocSettings:findCustomMetadataFile(filepath)
     if custom_mf then
-        local props = DocSettings.openSettingsFile(custom_mf):readSetting("custom_props")
-        if props and next(props) then
+        local settings = DocSettings.openSettingsFile(custom_mf)
+        local custom_props = settings:readSetting("custom_props")
+        local doc_props = settings:readSetting("doc_props")
+        custom_props, doc_props = migrateCachedPages(custom_mf, filepath, custom_props, doc_props)
+        if hasData(custom_props) or hasData(doc_props) then
             return true -- already cached with valid data
         end
-        -- cache file exists but is empty (previous failed attempt) — retry
+        -- Previous versions could leave an empty cache that shadows KOReader's native metadata path.
+        removeEmptyComicMetadata(custom_mf)
+        custom_mf = nil
     end
     local meta = extractComicInfo(filepath)
-    saveComicMetadata(filepath, meta)
-    return meta ~= nil
+    return saveComicMetadata(filepath, meta, custom_mf)
 end
 
 -- Monkey-patch FileManagerBookInfo
