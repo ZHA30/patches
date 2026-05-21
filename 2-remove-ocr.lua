@@ -1,5 +1,4 @@
-local _ = require("gettext")
-local NOOP = function() return true end
+local NO_OCR_RESULT = function() return nil end
 
 local function removeOptionByName(options, name)
     if type(options) ~= "table" then
@@ -29,10 +28,10 @@ end
 do
     local ok, KoptInterface = pcall(require, "document/koptinterface")
     if ok and KoptInterface then
-        KoptInterface.getOCRWord = NOOP
-        KoptInterface.getReflewOCRWord = NOOP
-        KoptInterface.getNativeOCRWord = NOOP
-        KoptInterface.getOCRText = NOOP
+        KoptInterface.getOCRWord = NO_OCR_RESULT
+        KoptInterface.getReflewOCRWord = NO_OCR_RESULT
+        KoptInterface.getNativeOCRWord = NO_OCR_RESULT
+        KoptInterface.getOCRText = NO_OCR_RESULT
         KoptInterface.ocrengine = nil
         KoptInterface.tessocr_data = nil
         KoptInterface.ocr_lang = nil
