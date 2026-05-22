@@ -3,10 +3,20 @@
 --   1) extendProps() — lazy sidecar population for all consumers
 --   2) getDocProps()  — pre-flight to skip MuPDF document open
 
-local Archiver = require("ffi/archiver")
-local DocSettings = require("docsettings")
-local logger = require("logger")
-local util = require("util")
+local ok
+local Archiver
+local DocSettings
+local logger
+local util
+
+ok, Archiver = pcall(require, "ffi/archiver")
+if not ok or not Archiver then return end
+ok, DocSettings = pcall(require, "docsettings")
+if not ok or not DocSettings then return end
+ok, logger = pcall(require, "logger")
+if not ok or not logger then return end
+ok, util = pcall(require, "util")
+if not ok or not util then return end
 
 local COMIC_EXTS = { cbz = true, cbr = true }
 
@@ -184,8 +194,8 @@ end
 
 -- Monkey-patch FileManagerBookInfo
 do
-    local ok, FileManagerBookInfo = pcall(require, "apps/filemanager/filemanagerbookinfo")
-    if not ok or not FileManagerBookInfo then return end
+    local bookinfo_ok, FileManagerBookInfo = pcall(require, "apps/filemanager/filemanagerbookinfo")
+    if not bookinfo_ok or not FileManagerBookInfo then return end
 
     local orig_extendProps = FileManagerBookInfo.extendProps
     FileManagerBookInfo.extendProps = function(original_props, filepath)

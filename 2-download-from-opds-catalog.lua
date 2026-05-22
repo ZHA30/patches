@@ -1,11 +1,29 @@
-local ButtonDialog = require("ui/widget/buttondialog")
-local InfoMessage = require("ui/widget/infomessage")
-local NetworkMgr = require("ui/network/manager")
-local Trapper = require("ui/trapper")
-local UIManager = require("ui/uimanager")
-local ffiUtil = require("ffi/util")
-local url = require("socket.url")
-local _ = require("gettext")
+local ok
+local ButtonDialog
+local InfoMessage
+local NetworkMgr
+local Trapper
+local UIManager
+local ffiUtil
+local url
+local _
+
+ok, ButtonDialog = pcall(require, "ui/widget/buttondialog")
+if not ok or not ButtonDialog then return end
+ok, InfoMessage = pcall(require, "ui/widget/infomessage")
+if not ok or not InfoMessage then return end
+ok, NetworkMgr = pcall(require, "ui/network/manager")
+if not ok or not NetworkMgr then return end
+ok, Trapper = pcall(require, "ui/trapper")
+if not ok or not Trapper then return end
+ok, UIManager = pcall(require, "ui/uimanager")
+if not ok or not UIManager then return end
+ok, ffiUtil = pcall(require, "ffi/util")
+if not ok or not ffiUtil then return end
+ok, url = pcall(require, "socket.url")
+if not ok or not url then return end
+ok, _ = pcall(require, "gettext")
+if not ok or not _ then return end
 local T = ffiUtil.template
 
 ---
@@ -173,7 +191,8 @@ userpatch.registerPatchPluginFunc("opds", function(plugin)
                 table.insert(buttons, {
                     { text = "\u{f0b0} " .. group_name, enabled = false, align = "left" }
                 })
-                for __, link in ipairs(facets) do
+                for link_pos = 1, #facets do
+                    local link = facets[link_pos]
                     local facet_text = link.title
                     if link["thr:count"] then
                         facet_text = T(_("%1 (%2)"), facet_text, link["thr:count"])
